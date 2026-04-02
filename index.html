@@ -336,6 +336,19 @@ document.getElementById("typingBox")
 })
 
 </script>
+// ⭐ 接收 chrome extension 訊息
+if (typeof chrome !== "undefined" && chrome.runtime) {
 
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+
+        if(msg.action === "LOAD_TEXT"){
+
+            document.getElementById("article").value = msg.text
+
+            let words = msg.text.trim().split(/\s+/)
+            document.getElementById("wordCount").innerText = "單字數：" + words.length
+        }
+    })
+}
 </body>
 </html>
