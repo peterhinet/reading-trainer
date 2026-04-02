@@ -2,48 +2,114 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Typing Trainer</title>
+<title>Immersive Reading Typing Trainer</title>
 
 <style>
-body{font-family:system-ui;padding:40px;background:#fafafa;}
-.container{display:flex;gap:40px;}
+body{
+    font-family:system-ui;
+    padding:40px;
+    background:#fafafa;
+}
+
+.container{
+    display:flex;
+    gap:40px;
+}
+
 .leftCol{flex:1.6;}
 .rightCol{flex:1;}
 
-.typingStage{position:relative;margin-top:10px;}
+.typingStage{
+    position:relative;
+    margin-top:10px;
+}
 
 #sentence{
-line-height:1.9;height:320px;overflow-y:auto;font-size:28px;
-border:1px solid #ddd;padding:16px;border-radius:12px;background:white;
+    line-height:1.9;
+    height:320px;
+    overflow-y:auto;
+    font-size:30px;
+    border:1px solid #ddd;
+    padding:16px;
+    border-radius:12px;
+    background:white;
 }
 
 #typingBox{
-position:absolute;top:0;left:0;width:100%;height:100%;
-opacity:0;font-size:28px;
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    opacity:0;
+    font-size:30px;
 }
 
 #translation{
-margin-top:10px;height:600px;overflow-y:auto;
-border:1px solid #eee;padding:16px;border-radius:12px;
-background:white;font-size:20px;color:#1565c0;
+    margin-top:10px;
+    height:600px;
+    overflow-y:auto;
+    border:1px solid #eee;
+    padding:16px;
+    border-radius:12px;
+    background:white;
+    font-size:22px;
+    color:#1565c0;
+    line-height:1.8;
+}
+
+.caret{
+    display:inline-block;
+    width:1px;
+    height:1em;
+    background:#222;
+    margin-left:1px;
+    vertical-align:bottom;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink{
+    0%{opacity:1;}
+    50%{opacity:0;}
+    100%{opacity:1;}
 }
 
 .progressBar{
-height:8px;background:#eee;border-radius:6px;margin-top:12px;
+    height:8px;
+    background:#eee;
+    border-radius:6px;
+    margin-top:12px;
+    overflow:hidden;
 }
 
 .progressInner{
-height:100%;width:0%;background:#4caf50;
+    height:100%;
+    width:0%;
+    background:#4caf50;
+}
+
+#resultBox{
+    margin-top:16px;
+    padding:16px;
+    border-radius:12px;
+    background:#eef7ff;
+    display:none;
+    line-height:1.8;
+    font-size:20px;
 }
 </style>
+
 </head>
 
 <body>
 
-<h2>貼上英文文章</h2>
+<h2>
+貼上英文文章
+<button onclick="speakArticle()" style="margin-left:12px">🔊 朗讀</button>
+<button onclick="stopSpeak()" style="margin-left:6px">⏹ 停止</button>
+</h2>
 
-<textarea id="article" style="width:800px;height:150px"></textarea>
+<textarea id="article" style="width:800px;height:160px"></textarea>
 
 <p id="wordCount">單字數：0</p>
 
@@ -54,6 +120,7 @@ height:100%;width:0%;background:#4caf50;
 <div class="container">
 
 <div class="leftCol">
+
 <div class="typingStage">
 <div id="sentence"></div>
 <textarea id="typingBox"></textarea>
@@ -62,6 +129,9 @@ height:100%;width:0%;background:#4caf50;
 <div class="progressBar">
 <div id="progressInner" class="progressInner"></div>
 </div>
+
+<div id="resultBox"></div>
+
 </div>
 
 <div class="rightCol">
@@ -72,13 +142,21 @@ height:100%;width:0%;background:#4caf50;
 
 <script>
 
-// ===== 語音 =====
-function speak(text){
-    let u = new SpeechSynthesisUtterance(text)
-    u.lang = "en-US"
-    u.rate = 0.95
+// ===== 手動朗讀（保留但不自動） =====
+function speakArticle(){
+    let text=document.getElementById("article").value.trim()
+    if(!text){
+        alert("請先貼上英文文章")
+        return
+    }
+    let u=new SpeechSynthesisUtterance(text)
+    u.lang="en-US"
     speechSynthesis.cancel()
     speechSynthesis.speak(u)
+}
+
+function stopSpeak(){
+    speechSynthesis.cancel()
 }
 
 // ===== 基本變數 =====
@@ -86,6 +164,9 @@ let sentences=[]
 let index=0
 let typedHistory=""
 let fullLength=0
+let startTime=0
+let totalTypedChars=0
+let totalErrorChars=0
 
 // ===== 單字數 =====
 document.getElementById("article").addEventListener("input",function(){
@@ -108,15 +189,19 @@ function startPractice(){
     index=0
     typedHistory=""
     fullLength=cleaned.length
+    totalTypedChars=0
+    totalErrorChars=0
+    startTime=Date.now()
 
     document.getElementById("typingBox").value=""
     document.getElementById("translation").innerHTML=""
-    document.getElementById("typingBox").focus()
+    document.getElementById("resultBox").style.display="none"
 
+    document.getElementById("typingBox").focus()
     render("")
 }
 
-// ===== 進度條 =====
+// ===== 進度 =====
 function updateProgress(len){
     let percent=Math.floor(len/fullLength*100)
     document.getElementById("progressInner").style.width=percent+"%"
@@ -124,20 +209,23 @@ function updateProgress(len){
 
 // ===== 畫面 =====
 function render(current){
-
     let html="<span style='color:#999'>"+typedHistory+"</span>"
     let target=sentences[index]||""
 
-    for(let i=0;i<target.length;i++){
+    let maxLen=Math.max(target.length,current.length)
 
-        let t=target[i]
-        let c=current[i]
+    for(let i=0;i<maxLen;i++){
+        let t=target[i]||""
+        let c=current[i]||""
 
         if(i<current.length){
-            html += (c===t)
-            ? "<span style='color:green'>"+t+"</span>"
-            : "<span style='background:#ffd6d6'>"+t+"</span>"
+            html+= (c===t)
+            ? "<span style='color:green'>"+(t||c)+"</span>"
+            : "<span style='background:#ffd6d6;color:#d00'>"+(t||c)+"</span>"
         }else{
+            if(i===current.length){
+                html+="<span class='caret'></span>"
+            }
             html+="<span style='color:#ccc'>"+t+"</span>"
         }
     }
@@ -145,25 +233,31 @@ function render(current){
     document.getElementById("sentence").innerHTML=html
 }
 
-// ===== 打字事件 =====
+// ===== 打字 =====
 document.getElementById("typingBox").addEventListener("input", async function(){
 
     let value=this.value
     let target=sentences[index]||""
     let current=value.substring(typedHistory.length)
 
+    totalTypedChars=value.length
+
+    let error=0
+    for(let i=0;i<current.length;i++){
+        if(current[i]!==target[i]) error++
+    }
+    totalErrorChars+=error
+
     render(current)
     updateProgress(value.length)
 
     if(value===typedHistory+target){
 
-        // ⭐ 發音
-        speak(target)
+        // ❌ 已移除自動發音
 
         typedHistory+=target
         index++
 
-        // ⭐ 翻譯
         let res=await fetch(
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q="
         +encodeURIComponent(target))
@@ -172,10 +266,27 @@ document.getElementById("typingBox").addEventListener("input", async function(){
         document.getElementById("translation").innerHTML+=data[0][0][0]+" "
 
         render("")
+
+        if(index>=sentences.length){
+            let duration=(Date.now()-startTime)/1000
+            let words=document.getElementById("article").value.trim().split(/\s+/).length
+            let wpm=Math.round(words/(duration/60))
+
+            let accuracy=Math.round(
+            (1-totalErrorChars/Math.max(1,totalTypedChars))*100)
+
+            let box=document.getElementById("resultBox")
+            box.style.display="block"
+            box.innerHTML=
+            "🎉 完成<br>"+
+            "速度："+wpm+" WPM<br>"+
+            "正確率："+accuracy+"%"
+        }
     }
 })
 
-// ===== Chrome Extension 接收 =====
+
+// ===== Extension 接收 =====
 if (typeof chrome !== "undefined" && chrome.runtime) {
     chrome.runtime.onMessage.addListener((msg)=>{
         if(msg.action==="LOAD_TEXT"){
@@ -184,18 +295,16 @@ if (typeof chrome !== "undefined" && chrome.runtime) {
     })
 }
 
-// ===== Console 測試用 =====
+// ===== Console 測試 =====
 window.addEventListener("message", function(event){
     if(event.data.action==="LOAD_TEXT"){
         loadText(event.data.text)
     }
 })
 
-// ===== 共用載入函式 =====
+// ===== 共用 =====
 function loadText(text){
-
-    document.getElementById("article").value = text
-
+    document.getElementById("article").value=text
     let words=text.trim().split(/\s+/).length
     document.getElementById("wordCount").innerText="單字數："+words
 
