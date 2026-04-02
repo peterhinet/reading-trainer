@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Typing Trainer</title>
 
 <style>
@@ -9,20 +10,32 @@ body{font-family:system-ui;padding:40px;background:#fafafa;}
 .container{display:flex;gap:40px;}
 .leftCol{flex:1.6;}
 .rightCol{flex:1;}
+
 .typingStage{position:relative;margin-top:10px;}
+
 #sentence{
-line-height:1.9;height:320px;overflow-y:auto;font-size:30px;
+line-height:1.9;height:320px;overflow-y:auto;font-size:28px;
 border:1px solid #ddd;padding:16px;border-radius:12px;background:white;
 }
+
 #typingBox{
-position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:30px;
+position:absolute;top:0;left:0;width:100%;height:100%;
+opacity:0;font-size:28px;
 }
+
 #translation{
-margin-top:10px;height:600px;overflow-y:auto;border:1px solid #eee;
-padding:16px;border-radius:12px;background:white;font-size:22px;color:#1565c0;
+margin-top:10px;height:600px;overflow-y:auto;
+border:1px solid #eee;padding:16px;border-radius:12px;
+background:white;font-size:20px;color:#1565c0;
 }
-.progressBar{height:8px;background:#eee;border-radius:6px;margin-top:12px;}
-.progressInner{height:100%;width:0%;background:#4caf50;}
+
+.progressBar{
+height:8px;background:#eee;border-radius:6px;margin-top:12px;
+}
+
+.progressInner{
+height:100%;width:0%;background:#4caf50;
+}
 </style>
 </head>
 
@@ -30,7 +43,7 @@ padding:16px;border-radius:12px;background:white;font-size:22px;color:#1565c0;
 
 <h2>貼上英文文章</h2>
 
-<textarea id="article" style="width:800px;height:160px"></textarea>
+<textarea id="article" style="width:800px;height:150px"></textarea>
 
 <p id="wordCount">單字數：0</p>
 
@@ -59,31 +72,39 @@ padding:16px;border-radius:12px;background:white;font-size:22px;color:#1565c0;
 
 <script>
 
+// ===== 語音 =====
 function speak(text){
-    let u=new SpeechSynthesisUtterance(text)
-    u.lang="en-US"
+    let u = new SpeechSynthesisUtterance(text)
+    u.lang = "en-US"
+    u.rate = 0.95
     speechSynthesis.cancel()
     speechSynthesis.speak(u)
 }
 
+// ===== 基本變數 =====
 let sentences=[]
 let index=0
 let typedHistory=""
 let fullLength=0
 
+// ===== 單字數 =====
 document.getElementById("article").addEventListener("input",function(){
     let text=this.value.trim()
     let words=text?text.split(/\s+/).length:0
     document.getElementById("wordCount").innerText="單字數："+words
 })
 
+// ===== 前處理 =====
 function normalizeArticle(text){
     return text.replace(/[\r\n]+/g," ").replace(/\s+/g," ").trim()
 }
 
+// ===== 開始 =====
 function startPractice(){
     let cleaned=normalizeArticle(document.getElementById("article").value)
+
     sentences=(cleaned.match(/[^.!?]+[.!?]+\s*/g)||[])
+
     index=0
     typedHistory=""
     fullLength=cleaned.length
@@ -95,20 +116,25 @@ function startPractice(){
     render("")
 }
 
+// ===== 進度條 =====
 function updateProgress(len){
     let percent=Math.floor(len/fullLength*100)
     document.getElementById("progressInner").style.width=percent+"%"
 }
 
+// ===== 畫面 =====
 function render(current){
+
     let html="<span style='color:#999'>"+typedHistory+"</span>"
     let target=sentences[index]||""
 
     for(let i=0;i<target.length;i++){
-        let t=target[i],c=current[i]
+
+        let t=target[i]
+        let c=current[i]
 
         if(i<current.length){
-            html+= (c===t)
+            html += (c===t)
             ? "<span style='color:green'>"+t+"</span>"
             : "<span style='background:#ffd6d6'>"+t+"</span>"
         }else{
@@ -119,7 +145,8 @@ function render(current){
     document.getElementById("sentence").innerHTML=html
 }
 
-document.getElementById("typingBox").addEventListener("input",async function(){
+// ===== 打字事件 =====
+document.getElementById("typingBox").addEventListener("input", async function(){
 
     let value=this.value
     let target=sentences[index]||""
@@ -130,11 +157,13 @@ document.getElementById("typingBox").addEventListener("input",async function(){
 
     if(value===typedHistory+target){
 
+        // ⭐ 發音
         speak(target)
 
         typedHistory+=target
         index++
 
+        // ⭐ 翻譯
         let res=await fetch(
         "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q="
         +encodeURIComponent(target))
@@ -146,13 +175,32 @@ document.getElementById("typingBox").addEventListener("input",async function(){
     }
 })
 
-// Chrome extension 接收
+// ===== Chrome Extension 接收 =====
 if (typeof chrome !== "undefined" && chrome.runtime) {
     chrome.runtime.onMessage.addListener((msg)=>{
         if(msg.action==="LOAD_TEXT"){
-            document.getElementById("article").value=msg.text
+            loadText(msg.text)
         }
     })
+}
+
+// ===== Console 測試用 =====
+window.addEventListener("message", function(event){
+    if(event.data.action==="LOAD_TEXT"){
+        loadText(event.data.text)
+    }
+})
+
+// ===== 共用載入函式 =====
+function loadText(text){
+
+    document.getElementById("article").value = text
+
+    let words=text.trim().split(/\s+/).length
+    document.getElementById("wordCount").innerText="單字數："+words
+
+    // ⭐ 可開啟自動開始
+    // startPractice()
 }
 
 </script>
