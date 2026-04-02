@@ -2,137 +2,45 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Immersive Reading Typing Trainer</title>
+<title>Typing Trainer</title>
 
 <style>
-body{
-    font-family:system-ui;
-    padding:40px;
-    background:#fafafa;
-}
-
-.container{
-    display:flex;
-    gap:40px;
-}
-
+body{font-family:system-ui;padding:40px;background:#fafafa;}
+.container{display:flex;gap:40px;}
 .leftCol{flex:1.6;}
 .rightCol{flex:1;}
-
-.typingStage{
-    position:relative;
-    margin-top:10px;
-}
-
+.typingStage{position:relative;margin-top:10px;}
 #sentence{
-    line-height:1.9;
-    height:320px;
-    overflow-y:auto;
-    font-size:30px;
-    border:1px solid #ddd;
-    padding:16px;
-    border-radius:12px;
-    background:white;
+line-height:1.9;height:320px;overflow-y:auto;font-size:30px;
+border:1px solid #ddd;padding:16px;border-radius:12px;background:white;
 }
-
 #typingBox{
-    position:absolute;
-    top:0;
-    left:0;
-    width:100%;
-    height:100%;
-    opacity:0;
-    font-size:30px;
+position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;font-size:30px;
 }
-
 #translation{
-    margin-top:10px;
-    height:600px;
-    overflow-y:auto;
-    border:1px solid #eee;
-    padding:16px;
-    border-radius:12px;
-    background:white;
-    font-size:22px;
-    color:#1565c0;
-    line-height:1.8;
+margin-top:10px;height:600px;overflow-y:auto;border:1px solid #eee;
+padding:16px;border-radius:12px;background:white;font-size:22px;color:#1565c0;
 }
-
-.caret{
-    display:inline-block;
-    width:1px;
-    height:1em;
-    background:#222;
-    margin-left:1px;
-    vertical-align:bottom;
-    animation: blink 1s infinite;
-}
-
-@keyframes blink{
-    0%{opacity:1;}
-    50%{opacity:0;}
-    100%{opacity:1;}
-}
-
-.progressBar{
-    height:8px;
-    background:#eee;
-    border-radius:6px;
-    margin-top:12px;
-    overflow:hidden;
-}
-
-.progressInner{
-    height:100%;
-    width:0%;
-    background:#4caf50;
-}
-
-#resultBox{
-    margin-top:16px;
-    padding:16px;
-    border-radius:12px;
-    background:#eef7ff;
-    display:none;
-    line-height:1.8;
-    font-size:20px;
-}
+.progressBar{height:8px;background:#eee;border-radius:6px;margin-top:12px;}
+.progressInner{height:100%;width:0%;background:#4caf50;}
 </style>
-
 </head>
 
 <body>
 
-<h2>
-貼上英文文章
-<button onclick="speakArticle()" style="margin-left:12px;height:34px;font-size:16px">
-🔊 朗讀
-</button>
+<h2>貼上英文文章</h2>
 
-<button onclick="stopSpeak()" style="margin-left:6px;height:34px;font-size:16px">
-⏹ 停止
-</button>
-</h2>
+<textarea id="article" style="width:800px;height:160px"></textarea>
 
-<textarea id="article"
-style="width:800px;height:160px;font-size:16px"></textarea>
+<p id="wordCount">單字數：0</p>
 
-<p id="wordCount" style="color:#666;margin-top:6px">單字數：0</p>
-
-<br>
-
-<button onclick="startPractice()" style="height:42px;font-size:18px">
-開始練習
-</button>
+<button onclick="startPractice()">開始練習</button>
 
 <hr>
 
 <div class="container">
 
 <div class="leftCol">
-
-<h3>打字進度（可直接在此打字）</h3>
-
 <div class="typingStage">
 <div id="sentence"></div>
 <textarea id="typingBox"></textarea>
@@ -141,65 +49,32 @@ style="width:800px;height:160px;font-size:16px"></textarea>
 <div class="progressBar">
 <div id="progressInner" class="progressInner"></div>
 </div>
-
-<div id="resultBox"></div>
-
 </div>
 
 <div class="rightCol">
-
-<h3>中文翻譯</h3>
 <div id="translation"></div>
-
 </div>
 
 </div>
 
 <script>
 
-function speakArticle(){
-
-    let text = document.getElementById("article").value.trim()
-
-    if(!text){
-        alert("請先貼上英文文章")
-        return
-    }
-
+function speak(text){
+    let u=new SpeechSynthesisUtterance(text)
+    u.lang="en-US"
     speechSynthesis.cancel()
-
-    let u = new SpeechSynthesisUtterance(text)
-    u.lang = "en-US"
-    u.rate = 0.9
-    u.pitch = 1
-
     speechSynthesis.speak(u)
-}
-
-function stopSpeak(){
-    speechSynthesis.cancel()
 }
 
 let sentences=[]
 let index=0
 let typedHistory=""
 let fullLength=0
-let startTime=0
-
-let totalTypedChars=0
-let totalErrorChars=0
 
 document.getElementById("article").addEventListener("input",function(){
-
     let text=this.value.trim()
-
-    if(!text){
-        document.getElementById("wordCount").innerText="單字數：0"
-        return
-    }
-
-    let words=text.split(/\s+/)
-    document.getElementById("wordCount").innerText="單字數："+words.length
+    let words=text?text.split(/\s+/).length:0
+    document.getElementById("wordCount").innerText="單字數："+words
 })
 
 function normalizeArticle(text){
@@ -207,25 +82,14 @@ function normalizeArticle(text){
 }
 
 function startPractice(){
-
-    let raw=document.getElementById("article").value
-    let cleaned=normalizeArticle(raw)
-
+    let cleaned=normalizeArticle(document.getElementById("article").value)
     sentences=(cleaned.match(/[^.!?]+[.!?]+\s*/g)||[])
-
     index=0
     typedHistory=""
     fullLength=cleaned.length
 
-    totalTypedChars=0
-    totalErrorChars=0
-
-    startTime=Date.now()
-
     document.getElementById("typingBox").value=""
     document.getElementById("translation").innerHTML=""
-    document.getElementById("resultBox").style.display="none"
-
     document.getElementById("typingBox").focus()
 
     render("")
@@ -236,119 +100,62 @@ function updateProgress(len){
     document.getElementById("progressInner").style.width=percent+"%"
 }
 
-function smartScroll(box){
-    let caret=box.querySelector(".caret")
-    if(!caret) return
-    box.scrollTop=caret.offsetTop-box.clientHeight*0.4
-}
-
 function render(current){
-
     let html="<span style='color:#999'>"+typedHistory+"</span>"
     let target=sentences[index]||""
 
-    let maxLen=Math.max(target.length,current.length)
+    for(let i=0;i<target.length;i++){
+        let t=target[i],c=current[i]
 
-    for(let i=0;i<maxLen;i++){
-
-        let t=target[i]||""
-        let c=current[i]||""
-
-        if(i < current.length){
-
-            if(c===t){
-                html+="<span style='color:green'>"+(t||c)+"</span>"
-            }else{
-                html+="<span style='background:#ffd6d6;color:#d00'>"+(t||c)+"</span>"
-            }
-
+        if(i<current.length){
+            html+= (c===t)
+            ? "<span style='color:green'>"+t+"</span>"
+            : "<span style='background:#ffd6d6'>"+t+"</span>"
         }else{
-
-            if(i===current.length){
-                html+="<span class='caret'></span>"
-            }
-
             html+="<span style='color:#ccc'>"+t+"</span>"
         }
     }
 
-    let box=document.getElementById("sentence")
-    box.innerHTML=html
-    smartScroll(box)
+    document.getElementById("sentence").innerHTML=html
 }
 
-document.getElementById("typingBox")
-.addEventListener("input", async function(){
+document.getElementById("typingBox").addEventListener("input",async function(){
 
     let value=this.value
     let target=sentences[index]||""
-
     let current=value.substring(typedHistory.length)
-
-    totalTypedChars=value.length
-
-    let error=0
-    for(let i=0;i<current.length;i++){
-        if(current[i]!==target[i]) error++
-    }
-    totalErrorChars+=error
 
     render(current)
     updateProgress(value.length)
 
     if(value===typedHistory+target){
 
+        speak(target)
+
         typedHistory+=target
         index++
 
         let res=await fetch(
-            "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q="
-            + encodeURIComponent(target)
-        )
+        "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q="
+        +encodeURIComponent(target))
 
         let data=await res.json()
-        let zh=data[0][0][0]
-
-        document.getElementById("translation").innerHTML+=zh+" "
+        document.getElementById("translation").innerHTML+=data[0][0][0]+" "
 
         render("")
-
-        if(index>=sentences.length){
-
-            let duration=(Date.now()-startTime)/1000
-            let words=document.getElementById("article").value.trim().split(/\s+/).length
-            let wpm=Math.round(words/(duration/60))
-
-            let accuracy=Math.round(
-                (1-totalErrorChars/Math.max(1,totalTypedChars))*100
-            )
-
-            let box=document.getElementById("resultBox")
-            box.style.display="block"
-            box.innerHTML=
-                "🎉 <b>Article Completed</b><br><br>"+
-                "Reading input speed："+wpm+" words / min<br>"+
-                "Accuracy："+accuracy+" %<br>"+
-                "Time spent："+Math.round(duration)+" sec"
-        }
     }
-
 })
 
-</script>
-// ⭐ 接收 chrome extension 訊息
+// Chrome extension 接收
 if (typeof chrome !== "undefined" && chrome.runtime) {
-
-    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-
-        if(msg.action === "LOAD_TEXT"){
-
-            document.getElementById("article").value = msg.text
-
-            let words = msg.text.trim().split(/\s+/)
-            document.getElementById("wordCount").innerText = "單字數：" + words.length
+    chrome.runtime.onMessage.addListener((msg)=>{
+        if(msg.action==="LOAD_TEXT"){
+            document.getElementById("article").value=msg.text
         }
     })
 }
+
+</script>
+
 </body>
 </html>
