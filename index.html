@@ -33,7 +33,7 @@ body{
     padding:16px;
     border-radius:12px;
     background:white;
-    scroll-behavior: smooth;
+    scroll-behavior:smooth;
 }
 
 #typingBox{
@@ -56,7 +56,6 @@ body{
     background:white;
     font-size:22px;
     color:#1565c0;
-    line-height:1.8;
 }
 
 .caret{
@@ -64,15 +63,11 @@ body{
     width:2px;
     height:1em;
     background:#222;
-    margin-left:1px;
-    vertical-align:bottom;
-    animation: blink 1s infinite;
+    animation:blink 1s infinite;
 }
 
 @keyframes blink{
-    0%{opacity:1;}
     50%{opacity:0;}
-    100%{opacity:1;}
 }
 
 .progressBar{
@@ -87,6 +82,14 @@ body{
     height:100%;
     width:0%;
     background:#4caf50;
+}
+
+#resultBox{
+    margin-top:16px;
+    padding:16px;
+    border-radius:12px;
+    background:#eef7ff;
+    display:none;
 }
 </style>
 
@@ -117,6 +120,8 @@ body{
 <div id="progressInner" class="progressInner"></div>
 </div>
 
+<div id="resultBox"></div>
+
 </div>
 
 <div class="rightCol">
@@ -127,13 +132,12 @@ body{
 
 <script>
 
-// ⭐ 修 race condition 用
-let pendingText = null
-
+let pendingText=null
 let sentences=[]
 let index=0
 let typedHistory=""
 let fullLength=0
+let startTime=0
 
 document.getElementById("article").addEventListener("input",function(){
     let text=this.value.trim()
@@ -153,12 +157,13 @@ function startPractice(){
     index=0
     typedHistory=""
     fullLength=cleaned.length
+    startTime=Date.now()
 
     document.getElementById("typingBox").value=""
     document.getElementById("translation").innerHTML=""
+    document.getElementById("resultBox").style.display="none"
 
     document.getElementById("typingBox").focus()
-
     render("")
 }
 
@@ -168,13 +173,9 @@ function updateProgress(len){
 }
 
 function smartScroll(box){
-    const caret = box.querySelector(".caret")
+    let caret=box.querySelector(".caret")
     if(!caret) return
-
-    const caretTop = caret.offsetTop
-    const boxHeight = box.clientHeight
-
-    box.scrollTop = caretTop - boxHeight * 0.5
+    box.scrollTop=caret.offsetTop-box.clientHeight*0.5
 }
 
 function render(current){
@@ -189,20 +190,12 @@ function render(current){
         let t=target[i]||""
         let c=current[i]||""
 
-        if(i < current.length){
-
-            if(c===t){
-                html+="<span style='color:green'>"+(t||c)+"</span>"
-            }else{
-                html+="<span style='background:#ffd6d6;color:#d00'>"+(t||c)+"</span>"
-            }
-
+        if(i<current.length){
+            html+= (c===t)
+            ? "<span style='color:green'>"+(t||c)+"</span>"
+            : "<span style='background:#ffd6d6;color:#d00'>"+(t||c)+"</span>"
         }else{
-
-            if(i===current.length){
-                html+="<span class='caret'></span>"
-            }
-
+            if(i===current.length) html+="<span class='caret'></span>"
             html+="<span style='color:#ccc'>"+t+"</span>"
         }
     }
@@ -212,8 +205,7 @@ function render(current){
     smartScroll(box)
 }
 
-document.getElementById("typingBox")
-.addEventListener("input", async function(){
+document.getElementById("typingBox").addEventListener("input", async function(){
 
     let value=this.value
     let target=sentences[index]||""
@@ -229,49 +221,46 @@ document.getElementById("typingBox")
 
         let res=await fetch(
             "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=zh-TW&dt=t&q="
-            + encodeURIComponent(target)
+            +encodeURIComponent(target)
         )
 
         let data=await res.json()
         document.getElementById("translation").innerHTML+=data[0][0][0]+" "
 
         render("")
-    }
-})
 
+        // ⭐ 完成
+        if(index>=sentences.length){
 
-// ⭐ 接收 extension / postMessage
-window.addEventListener("message", function(event){
+            let duration=(Date.now()-startTime)/1000
+            let words=document.getElementById("article").value.trim().split(/\s+/).length
+            let wpm=Math.round(words/(duration/60))
 
-    if(event.data.action==="LOAD_TEXT"){
-
-        let text = event.data.text
-
-        if(!document.getElementById("article")){
-            pendingText = text
-            return
+            let box=document.getElementById("resultBox")
+            box.style.display="block"
+            box.innerHTML=
+                "🎉 完成<br><br>"+
+                "速度："+wpm+" WPM<br>"+
+                "時間："+Math.round(duration)+" 秒"
         }
-
-        loadText(text)
     }
 })
 
-// ⭐ 頁面載入後補資料
-window.addEventListener("load", function(){
-
-    if(pendingText){
-        loadText(pendingText)
-        pendingText = null
+// ⭐ message 接收
+window.addEventListener("message",(event)=>{
+    if(event.data.action==="LOAD_TEXT"){
+        loadText(event.data.text)
     }
-
 })
 
-// ⭐ 共用
+// ⭐ 載入
 function loadText(text){
-    document.getElementById("article").value = text
-
+    document.getElementById("article").value=text
     let words=text.trim().split(/\s+/).length
     document.getElementById("wordCount").innerText="單字數："+words
+
+    // ⭐ 建議開
+    // startPractice()
 }
 
 </script>
