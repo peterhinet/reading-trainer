@@ -33,8 +33,6 @@ body{
     padding:16px;
     border-radius:12px;
     background:white;
-
-    /* ⭐ 平滑滾動 */
     scroll-behavior: smooth;
 }
 
@@ -129,6 +127,9 @@ body{
 
 <script>
 
+// ⭐ 修 race condition 用
+let pendingText = null
+
 let sentences=[]
 let index=0
 let typedHistory=""
@@ -173,8 +174,7 @@ function smartScroll(box){
     const caretTop = caret.offsetTop
     const boxHeight = box.clientHeight
 
-    const targetScroll = caretTop - boxHeight * 0.5
-    box.scrollTop = targetScroll
+    box.scrollTop = caretTop - boxHeight * 0.5
 }
 
 function render(current){
@@ -209,7 +209,6 @@ function render(current){
 
     let box=document.getElementById("sentence")
     box.innerHTML=html
-
     smartScroll(box)
 }
 
@@ -239,6 +238,41 @@ document.getElementById("typingBox")
         render("")
     }
 })
+
+
+// ⭐ 接收 extension / postMessage
+window.addEventListener("message", function(event){
+
+    if(event.data.action==="LOAD_TEXT"){
+
+        let text = event.data.text
+
+        if(!document.getElementById("article")){
+            pendingText = text
+            return
+        }
+
+        loadText(text)
+    }
+})
+
+// ⭐ 頁面載入後補資料
+window.addEventListener("load", function(){
+
+    if(pendingText){
+        loadText(pendingText)
+        pendingText = null
+    }
+
+})
+
+// ⭐ 共用
+function loadText(text){
+    document.getElementById("article").value = text
+
+    let words=text.trim().split(/\s+/).length
+    document.getElementById("wordCount").innerText="單字數："+words
+}
 
 </script>
 
